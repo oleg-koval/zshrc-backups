@@ -1,0 +1,424 @@
+typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
+# Interactive shells shouldn't use nounset: many OMZ plugins assume unset vars exist.
+case $- in *i*) unsetopt nounset;; esac
+
+# you-should-use — nounset-safe defaults (MUST be before OMZ)
+typeset -ga YSU_IGNORED_ALIASES YSU_IGNORED_GLOBAL_ALIASES
+YSU_IGNORED_ALIASES=(gs gst gco ga gaa gcm gca gp gpl gl gb gbd gbl)
+YSU_IGNORED_GLOBAL_ALIASES=()
+
+# internal buffers the plugin expects
+typeset -g _YSU_BUFFER="" _YSU_GLOBAL_BUFFER=""
+
+# behavior knobs
+export YSU_MODE=BESTMATCH
+export YSU_MESSAGE_POSITION=before
+export YSU_HARDCORE=0
+
+# Optional: keep strict mode for scripts but NOT for the interactive shell
+[[ -o interactive ]] && unsetopt nounset
+
+# OMZ core expects these to exist
+: ${DISABLE_AUTO_UPDATE:=true}
+: ${DISABLE_UPDATE_PROMPT:=true}
+: ${CASE_SENSITIVE:=false}
+: ${ENABLE_CORRECTION:=false}
+: ${DISABLE_MAGIC_FUNCTIONS:=false}
+: ${DISABLE_LS_COLORS:=false}
+: ${HYPHEN_INSENSITIVE:=false}
+: ${INSIDE_EMACS:=}
+: ${SSH_CLIENT:=}
+: ${ZLE_RPROMPT_INDENT:=1}
+
+# --- fzf sane defaults (fix Ctrl-R error) ---
+export FZF_TMUX=1
+# If height ends with '+' but no number after it, replace with a safe default.
+if [[ "${FZF_TMUX_HEIGHT:-}" = *'+' && "${FZF_TMUX_HEIGHT}" != *'+'([0-9]) ]]; then
+  unset FZF_TMUX_HEIGHT
+fi
+: ${FZF_TMUX_HEIGHT:='50%'}   # valid examples: '50%', '20', '40%+4'
+# --- end fzf defaults ---
+
+# If you enable the fzf plugin, it wants FZF_BASE defined
+if [[ -z "${FZF_BASE:-}" ]]; then
+  if command -v brew >/dev/null 2>&1 && brew --prefix fzf >/dev/null 2>&1; then
+    export FZF_BASE="$(brew --prefix fzf)"
+  else
+    export FZF_BASE="$HOME/.fzf"   # standard install location
+  fi
+fi
+
+##### Oh My Zsh base
+export ZSH="$HOME/.oh-my-zsh"
+export ZSH_DISABLE_COMPFIX=true
+ZSH_THEME="powerlevel10k/powerlevel10k"
+
+# --- FZF & tmux: sanity patch (fix "not a valid integer: 20+") ---
+# Prefer Homebrew's fzf on Apple Silicon
+[[ -x /opt/homebrew/opt/fzf/bin/fzf ]] && export PATH="/opt/homebrew/opt/fzf/bin:$PATH"
+
+# Always use tmux split/popup integration
+export FZF_TMUX=1
+
+# Force a valid height; some setups default to "20+" which tmux/zsh hate
+if [[ -z "${FZF_TMUX_HEIGHT:-}" || "${FZF_TMUX_HEIGHT}" == *'+'* ]]; then
+  export FZF_TMUX_HEIGHT='50%'
+fi
+
+# Scrub any bad --height in FZF_DEFAULT_OPTS (e.g. "--height 20+")
+if [[ -n "${FZF_DEFAULT_OPTS:-}" ]]; then
+  FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS//--height 20+/--height 50%}"
+  FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS//--height=20+/--height=50%}"
+  export FZF_DEFAULT_OPTS
+fi
+
+# Use fzf’s official keybindings (keeps Ctrl-R etc.) instead of OMZ’s wrapper
+[[ -r /opt/homebrew/opt/fzf/shell/key-bindings.zsh ]] && source /opt/homebrew/opt/fzf/shell/key-bindings.zsh
+# --- end FZF & tmux patch ---
+
+# enable OMZ
+plugins=(git fzf z fzf-tab zsh-autosuggestions you-should-use zsh-syntax-highlighting)
+if [[ -o nounset ]]; then __OMZ_NOUNSET=1; unsetopt nounset; fi
+source "$ZSH/oh-my-zsh.sh"
+[[ -n ${__OMZ_NOUNSET-} ]] && setopt nounset && unset __OMZ_NOUNSE
+
+# you-should-use — guard its functions in case nounset is toggled later
+ysu_guard() {
+  local fn
+  for fn in _check_aliases _check_global_aliases _flush_ysu_buffer; do
+    if typeset -f $fn >/dev/null && ! typeset -f ${fn}_orig >/dev/null; then
+      functions -c $fn ${fn}_orig
+      eval "$fn() {
+        emulate -L zsh
+        local had=0
+        if [[ -o nounset ]]; then had=1; unsetopt nounset; fi
+        ${fn}_orig \"\$@\"
+        (( had )) && setopt nounset
+      }"
+    fi
+  done
+}
+ysu_guard
+unset -f ysu_guard
+
+# pretty prompt (Powerlevel10k)
+[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
+
+# Plugins — safe set (pretty + fast). You can add more later.
+# plugins=(
+#   git
+#   zsh-autosuggestions
+#   zsh-syntax-highlighting
+# )
+
+# # Some OMZ/plugin vars may be read during init; give defaults (nounset-safe)
+# # : ${DISABLE_AUTO_UPDATE:=true}
+# : ${CASE_SENSITIVE:=false}
+# : ${ENABLE_CORRECTION:=false}
+# : ${DISABLE_MAGIC_FUNCTIONS:=false}
+# : ${DISABLE_LS_COLORS:=false}
+# : ${HYPHEN_INSENSITIVE:=false}
+# # : ${INSIDE_EMACS:=}
+# : ${ZLE_RPROMPT_INDENT:=1}
+# : ${PROMPT:=} : ${RPROMPT:=}
+# : ${PS1:=} : ${PS2:=} : ${PS3:=} : ${PS4:=}
+# : ${PROMPT2:=} : ${PROMPT3:=} : ${PROMPT4:=}
+# : ${RPS1:=} : ${RPS2:=} : ${RPS3:=} : ${RPS4:=}
+# : ${RPROMPT2:=} : ${RPROMPT3:=} : ${RPROMPT4:=}
+
+
+##### Your aliases
+alias c='clear'
+alias l='ls -la'
+alias reload='source ~/.zshrc'
+alias f='open .'
+alias nb='git checkout -b'
+
+# Git
+alias gs='git status'
+alias gst='git status'
+alias gco='git checkout'
+alias ga='git add'
+alias gaa='git add .'
+alias gcm='git commit -m'
+alias gca='git commit --amend'
+alias gp='git push'
+alias gpl='git pull'
+alias gl='git log --oneline --graph --decorate'
+alias gb='git branch'
+alias gbd='git branch -d'
+alias gbl='git blame'
+alias glg='git log --graph --decorate --oneline --all --date=relative'
+groot() { cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"; }
+alias gsw='git switch'
+alias gco-='git checkout -'
+alias gap='git add -p'
+alias gsta='git stash push -u'
+alias gstp='git stash pop'
+alias gstl='git stash list'
+alias grhh='git reset --hard HEAD'
+gfixup() { git commit --fixup "$@" && GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash "$(git merge-base HEAD @{u})"; }
+gprune() { git remote prune origin && git fetch -p && git branch --merged | grep -vE '(\*|main|master|develop)' | xargs -n1 -I{} git branch -d {}; }
+
+##### pnpm / PATH
+export PNPM_HOME="$HOME/Library/pnpm"
+case ":$PATH:" in (*":$PNPM_HOME:"*) ;; (*) export PATH="$PNPM_HOME:$PATH" ;; esac
+
+##### NVM
+export NVM_DIR="$HOME/.nvm"
+[[ -s "$NVM_DIR/nvm.sh" ]] && . "$NVM_DIR/nvm.sh"
+[[ -s "$NVM_DIR/bash_completion" ]] && . "$NVM_DIR/bash_completion"
+
+# Auto-use Node from .nvmrc
+nvmuse() { [[ -f .nvmrc ]] && nvm use >/dev/null || true; }
+autoload -Uz add-zsh-hook 2>/dev/null || true
+add-zsh-hook chpwd nvmuse 2>/dev/null || true
+nvmuse
+
+##### 1Password CLI (optional)
+[[ -f "$HOME/.config/op/plugins.sh" ]] && source "$HOME/.config/op/plugins.sh"
+
+##### Handy utils
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias cls='clear'
+alias path='echo $PATH | tr ":" "\n"'
+alias serve='python3 -m http.server 8000'
+alias please='sudo $(fc -ln -1)'
+mkcd() { mkdir -p -- "$1" && cd -- "$1"; }
+
+# Extract archives
+extract() {
+  local f="$1"; [[ -f "$f" ]] || { echo "file not found: $f"; return 1; }
+  case "$f" in
+    *.tar.bz2|*.tbz2) tar xjf "$f" ;;
+    *.tar.gz|*.tgz)   tar xzf "$f" ;;
+    *.tar.xz)         tar xJf "$f" ;;
+    *.tar)            tar xf "$f"  ;;
+    *.zip)            unzip -q "$f" ;;
+    *.rar)            unrar x "$f" ;;
+    *.7z)             7z x "$f" ;;
+    *) echo "don't know how to extract '$f'"; return 2;;
+  esac
+}
+
+# grep/ripgrep
+if (( $+commands[rg] )); then
+  alias grep='rg --color=auto -n'
+  alias grepr='rg -n -uu'
+else
+  alias grep='grep --color=auto -n'
+  alias grepr='grep -RIn'
+fi
+
+# Disk / ports / IPs (macOS)
+alias dsize='du -sh * | sort -h'
+alias ports='lsof -nP -iTCP -sTCP:LISTEN'
+whichport() { lsof -nP -iTCP:"$1" -sTCP:LISTEN; }
+killport() { lsof -t -i:"$1" | xargs -r kill -9; }
+alias myip='curl -s https://ifconfig.me || curl -s https://ipinfo.io/ip'
+alias localip="ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null"
+
+##### Docker / Compose helpers
+# Build and up one or more services
+dbuild() {
+  local dc="docker compose"; $dc version >/dev/null 2>&1 || dc="docker-compose"
+  (( $# )) || { echo "usage: dbuild <service> [service …]"; return 1; }
+  $dc build "$@" && $dc up -d "$@"
+}
+
+# Logs
+dlogs() {
+  local dc="docker compose"; $dc version >/dev/null 2>&1 || dc="docker-compose"
+  (( $# )) || { echo "usage: dlogs <service> [service…]"; return 1; }
+  $dc logs -f --tail=200 "$@"
+}
+
+# Shell into first container of a service
+dsh() {
+  local svc="$1"; shift || true
+  local cid
+  cid="$(docker compose ps -q "$svc" 2>/dev/null || docker-compose ps -q "$svc")"
+  [[ -n "$cid" ]] || { echo "no container for service: $svc"; return 1; }
+  docker exec -it "$cid" sh -lc 'command -v bash >/dev/null && exec bash || exec sh'
+}
+
+# Stop & remove service containers
+dkill() {
+  local dc="docker compose"; $dc version >/dev/null 2>&1 || dc="docker-compose"
+  (( $# )) || { echo "usage: dkill <service> [service…]"; return 1; }
+  $dc rm -sf "$@"
+}
+
+alias dprune='docker system prune -af --volumes'
+
+# Quick docker ps table
+unalias dps 2>/dev/null
+dps() { docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"; }
+
+# dclean — YSU-safe (no 'no_unset'), portable
+dclean() {
+  emulate -L zsh -o pipefail
+  local dc
+  if docker compose version >/dev/null 2>&1; then
+    dc="docker compose"
+  elif command -v docker-compose >/dev/null 2>&1 && docker-compose version >/dev/null 2>&1; then
+    dc="docker-compose"
+  else
+    echo "[x] docker compose not found."; return 1
+  fi
+
+  # Allow running from anywhere via envs
+  local project_dir="${DCLEAN_PROJECT_DIR:-$PWD}"
+  local -a dc_args
+  if [[ -n "${DCLEAN_COMPOSE_FILES:-}" ]]; then
+    local f; for f in ${(s[:])DCLEAN_COMPOSE_FILES}; do dc_args+=(-f "$f"); done
+  fi
+  _dc() { ( cd "$project_dir" && eval "$dc" "${(q@)dc_args}" "${(q@)}" ); }
+
+  _dc config >/dev/null 2>&1 || {
+    echo "[x] Not a Docker Compose project directory."
+    echo "    Tip: cd into the project or export DCLEAN_PROJECT_DIR=/path"
+    return 1
+  }
+
+  local -a services
+  if (( $# == 0 )); then
+    services=(${(f)$(_dc config --services)})
+  else
+    services=("$@")
+  fi
+
+  echo "🎯  Target services:"; printf "  -  %s\n" "${services[@]}"; echo "──────────────────────────────"
+
+  local -a cids svc_cids
+  local s; for s in "${services[@]}"; do
+    svc_cids=(${(f)$(_dc ps -q "$s" 2>/dev/null)})
+    (( ${#svc_cids[@]} )) && cids+=("${svc_cids[@]}")
+  done
+
+  local -a cname; local cid name
+  for cid in "${cids[@]}"; do
+    name="$(docker inspect -f '{{.Name}}' "$cid" 2>/dev/null)"; name="${name#/}"
+    [[ -n "$name" ]] && cname+=("$name")
+  done
+
+  local -a vols imgs; local img_id v
+  for cid in "${cids[@]}"; do
+    for v in ${(f)$(docker inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$cid" 2>/dev/null)}; do
+      [[ -n "$v" ]] && vols+=("$v")
+    done
+    img_id="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null)"
+    [[ -n "$img_id" ]] && imgs+=("$img_id")
+  done
+
+  local -a uniq_vols uniq_imgs
+  uniq_vols=(${(u)vols}); uniq_imgs=(${(u)imgs})
+
+  echo "🗑️  Removing containers..."; echo "──────────────────────────────"
+  if (( ${#cname[@]} )); then printf '  📦 %s\n' "${cname[@]}"; else echo "No containers to remove."; fi
+  _dc rm -sfv "${services[@]}" >/dev/null 2>&1 || true
+
+  echo "──────────────────────────────"; echo "🗑️  Removing volumes..."; echo "──────────────────────────────"
+  if (( ${#uniq_vols[@]} )); then printf '  🗄️  %s\n' "${uniq_vols[@]}"; docker volume rm -f "${uniq_vols[@]}" >/dev/null 2>&1 || true
+  else echo "No volumes to remove."; fi
+
+  echo "──────────────────────────────"; echo "🗑️  Removing images..."; echo "──────────────────────────────"
+  if (( ${#uniq_imgs[@]} )); then
+    local img ref short
+    for img in "${uniq_imgs[@]}"; do
+      short="${${img#sha256:}:0:12}"
+      ref="$(docker image inspect --format '{{if .RepoTags}}{{index .RepoTags 0}}{{else}}<untagged>{{end}}' "$img" 2>/dev/null)"
+      echo "  🖼️  ${short:-$img} ${ref}"
+    done
+    docker image rm -f "${uniq_imgs[@]}" >/dev/null 2>&1 || true
+  else echo "No images to remove."; fi
+
+  echo "🔄  Rebuilding services..."; echo "──────────────────────────────"
+  echo "🛠️  Building Docker Compose services..."; echo "──────────────────────────────"
+  if _dc build "${services[@]}"; then echo "🎉  All services built successfully!"; else echo "❌  One or more services failed to build."; fi
+
+  echo "🚀  Starting services..."; echo "──────────────────────────────"
+  _dc up -d "${services[@]}"; echo "[✓] Done."
+}
+
+
+##### fzf shell integration (optional)
+# [[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
+
+# --- zshrc backups (1-click) ---
+zrcb() {  # backup current ~/.zshrc, commit, and (if configured) push
+  ( set -e
+    local BDIR="$HOME/.config/zshrc-backups"
+    mkdir -p "$BDIR"
+    local TS="$(date +%Y%m%d-%H%M%S)"
+    cp "$HOME/.zshrc" "$BDIR/zshrc.$TS"
+    cd "$BDIR"
+    git add .
+    git commit -m "zshrc $TS" >/dev/null
+    git push >/dev/null 2>&1 || true
+    echo "✓ zshrc backed up to $BDIR (commit $(git rev-parse --short HEAD))"
+  )
+}
+alias zbackup=zrcb
+
+# Set or create a remote for zshrc backups
+zrcb-remote() {  # usage: zrcb-remote <git-remote-url> [remote-name=origin]
+  local url="$1"; local name="${2:-origin}"
+  if [[ -z "$url" ]]; then
+    echo "usage: zrcb-remote <git-remote-url> [remote-name]"
+    echo "ex:   zrcb-remote git@github.com:<you>/zshrc-backups.git"
+    return 2
+  fi
+  ( set -e
+    cd "$HOME/.config/zshrc-backups"
+    git remote remove "$name" 2>/dev/null || true
+    git remote add "$name" "$url"
+    git branch -M main
+    git push -u "$name" main
+    echo "✓ remote '$name' set to $url"
+  )
+}
+
+# Show backup status
+zrcb-status() {
+  ( cd "$HOME/.config/zshrc-backups" || return
+    echo "Remote(s):"; git remote -v
+    echo; echo "Recent commits:"; git --no-pager log --oneline -n 5
+  )
+}
+
+# One-liner using GitHub CLI (auto-creates repo), requires 'gh auth login'
+zrcb-remote-gh() {  # usage: zrcb-remote-gh [repo-name=zshrc-backups] [visibility=private]
+  local repo="${1:-zshrc-backups}" vis="${2:-private}"
+  command -v gh >/dev/null || { echo "gh not found. Install GitHub CLI."; return 1; }
+  ( set -e
+    cd "$HOME/.config/zshrc-backups"
+    gh repo create "$repo" --"$vis" --source . --remote origin --push
+    echo "✓ created and pushed to GitHub: $repo ($vis)"
+  )
+}
+
+# optional: restore the most recent backup
+zrestore() {
+  local BDIR="$HOME/.config/zshrc-backups"
+  local LAST="$(ls -1 "$BDIR"/zshrc.* 2>/dev/null | tail -n1)"
+  [[ -n "$LAST" ]] || { echo "no backups found in $BDIR"; return 1; }
+  cp "$LAST" "$HOME/.zshrc"
+  echo "✓ restored $LAST → ~/.zshrc  (reload with: source ~/.zshrc)"
+}
+# --- end backups ---
+
+
+# show current plugins
+plugs() { print -rl -- $plugins }
+
+# add one safely
+plug-add() {
+  local p; for p in "$@"; do
+    (( ${plugins[(Ie)$p]} )) || plugins+=("$p")
+  done
+  printf 'plugins=(%s)\n' "${plugins[@]}" | sed 's/ / /g'
+  echo "Now run: zbackup && source ~/.zshrc"
+}
