@@ -1,0 +1,211 @@
+# Starship Prompt Configuration
+# Get editor completions based on the config schema
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# Inserts a blank line between shell prompts
+add_newline = true
+
+# Format string for the prompt
+format = """
+$username\
+$hostname\
+$directory\
+$git_branch\
+$git_status\
+$git_metrics\
+$python\
+$nodejs\
+$rust\
+$golang\
+$java\
+$docker_context\
+$kubernetes\
+$aws\
+$gcloud\
+$package\
+$memory_usage\
+$cmd_duration\
+$line_break\
+$jobs\
+$battery\
+$time\
+$status\
+$character"""
+
+# Username configuration
+[username]
+style_user = "white bold"
+style_root = "black bold"
+format = "[$user]($style) "
+disabled = false
+show_always = true
+
+# Hostname configuration
+[hostname]
+ssh_only = false
+format = "on [$hostname](bold red) "
+trim_at = "."
+disabled = false
+
+# Directory configuration
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+format = "[$path]($style)[$read_only]($read_only_style) "
+style = "bold cyan"
+read_only = "🔒"
+read_only_style = "red"
+
+# Git branch configuration
+[git_branch]
+symbol = "🌿 "
+format = "on [$symbol$branch]($style) "
+style = "bold green"
+truncation_length = 15
+truncation_symbol = "…"
+
+# Git status configuration
+[git_status]
+format = '([\[$all_status$ahead_behind\]]($style) )'
+style = "bold red"
+conflicted = "⚡"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+untracked = "?${count}"
+stashed = "📦"
+modified = "!${count}"
+staged = "+${count}"
+renamed = "»${count}"
+deleted = "✘${count}"
+
+# Git metrics (commits ahead/behind)
+[git_metrics]
+added_style = "bold blue"
+deleted_style = "bold red"
+only_nonzero_diffs = true
+format = '([+$added]($added_style) )([-$deleted]($deleted_style) )'
+disabled = false
+
+# Python configuration
+[python]
+symbol = "🐍 "
+format = 'via [$symbol$pyenv_prefix($version )(\($virtualenv\) )]($style)'
+style = "yellow bold"
+pyenv_version_name = false
+python_binary = ["python", "python3", "python2"]
+
+# Node.js configuration
+[nodejs]
+symbol = "⬢ "
+format = "via [$symbol($version )]($style)"
+style = "bold green"
+detect_extensions = ["js", "mjs", "cjs", "ts", "tsx", "jsx"]
+detect_files = ["package.json", ".node-version"]
+
+# Rust configuration
+[rust]
+symbol = "🦀 "
+format = "via [$symbol($version )]($style)"
+style = "bold red"
+
+# Go configuration
+[golang]
+symbol = "🐹 "
+format = "via [$symbol($version )]($style)"
+style = "bold cyan"
+
+# Java configuration
+[java]
+symbol = "☕ "
+format = "via [$symbol($version )]($style)"
+style = "red dimmed"
+
+# Docker configuration
+[docker_context]
+symbol = "🐳 "
+format = "via [$symbol$context]($style) "
+style = "blue bold"
+only_with_files = true
+
+# Kubernetes configuration
+[kubernetes]
+symbol = "⎈ "
+format = 'on [$symbol$context( \($namespace\))]($style) '
+style = "cyan bold"
+disabled = false
+
+# AWS configuration
+[aws]
+symbol = "☁️ "
+format = 'on [$symbol($profile )(\($region\) )]($style)'
+style = "bold blue"
+
+# Google Cloud configuration
+[gcloud]
+symbol = "☁️ "
+format = 'on [$symbol$account(@$domain)(\($region\))]($style) '
+style = "bold blue"
+
+# Package version configuration
+[package]
+symbol = "📦 "
+format = "is [$symbol$version]($style) "
+style = "208 bold"
+
+# Memory usage configuration
+[memory_usage]
+disabled = false
+threshold = 70
+symbol = "🐏 "
+format = "using [$symbol${ram}( | ${swap})]($style) "
+style = "white bold dimmed"
+
+# Command duration configuration
+[cmd_duration]
+min_time = 2000
+format = "took [$duration]($style) "
+style = "yellow bold"
+
+# Jobs configuration
+[jobs]
+symbol = "⚙️ "
+format = "[$symbol$number]($style) "
+style = "bold blue"
+
+# Battery configuration
+[battery]
+full_symbol = "🔋 "
+charging_symbol = "⚡️ "
+discharging_symbol = "💀 "
+format = "[$symbol$percentage]($style) "
+
+[[battery.display]]
+threshold = 10
+style = "bold red"
+
+[[battery.display]]
+threshold = 30
+style = "bold yellow"
+
+# Time configuration
+[time]
+disabled = false
+format = '🕙[$time]($style) '
+time_format = "%R"
+style = "bright-white"
+
+# Status configuration
+[status]
+style = "bg:blue"
+symbol = "🔴"
+format = '[\[$symbol $common_meaning$signal_name$maybe_int\]]($style) '
+map_symbol = true
+disabled = false
+
+# Character configuration (the prompt character)
+[character]
+success_symbol = "[➜](bold green)"
+error_symbol = "[➜](bold red)"
+vicmd_symbol = "[❮](bold green)"
+
