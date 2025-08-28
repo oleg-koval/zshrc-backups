@@ -272,3 +272,9 @@ plug-add() {
   printf 'plugins=(%s)\n' "${plugins[@]}" | sed 's/ / /g'
   echo "Now run: zbackup && source ~/.zshrc"
 }
+
+# backup daily
+alias backup='~/.local/bin/zshrc_backup_daily.sh'
+
+# edit aliases
+alias edit-aliases='cursor ~/.zsh/aliases.zsh'
