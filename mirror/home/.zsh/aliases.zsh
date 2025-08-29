@@ -278,3 +278,23 @@ alias backup='~/.local/bin/zshrc_backup_daily.sh'
 
 # edit aliases
 alias edit-aliases='cursor ~/.zsh/aliases.zsh'
+
+alias bpc='AWS_PROFILE=bizcuit-prd-core aws rds generate-db-auth-token --hostname bd1aohrleo1hkas.ca9zxcdegy6a.eu-west-1.rds.amazonaws.com --port 5432 --region eu-west-1 --username user_oleg.koval | tr -d "\n" | pbcopy'
+
+alias token-core='
+aws rds generate-db-auth-token \
+  --hostname bd1aohrleo1hkas.ca9zxcdegy6a.eu-west-1.rds.amazonaws.com \
+  --port 5432 \
+  --region eu-west-1 \
+  --username user_oleg.koval \
+  --profile bizcuit-prd-core | tr -d "\n" | pbcopy
+'
+
+alias token-nc='
+aws rds generate-db-auth-token \
+  --hostname bd1p4a27j5q3mll.c6h3k4kc4ytk.eu-west-1.rds.amazonaws.com \
+  --port 5432 \
+  --region eu-west-1 \
+  --username user_oleg \
+  --profile bizcuit-prd | tr -d "\n" | pbcopy
+'
