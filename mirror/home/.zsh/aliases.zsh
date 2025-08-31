@@ -114,14 +114,14 @@ dps() { docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"; }
 # dclean — YSU-safe (no 'no_unset'), portable
 dclean() {
   emulate -L zsh -o pipefail
-  local dc
-  if docker compose version >/dev/null 2>&1; then
-    dc="docker compose"
-  elif command -v docker-compose >/dev/null 2>&1 && docker-compose version >/dev/null 2>&1; then
-    dc="docker-compose"
-  else
-    echo "[x] docker compose not found."; return 1
-  fi
+  local dc="docker compose"
+  # if docker compose version >/dev/null 2>&1; then
+  #   dc="docker compose"
+  # elif command -v docker-compose >/dev/null 2>&1 && docker-compose version >/dev/null 2>&1; then
+  #   dc="docker-compose"
+  # else
+  #   echo "[x] docker compose not found."; return 1
+  # fi
 
   # Allow running from anywhere via envs
   local project_dir="${DCLEAN_PROJECT_DIR:-$PWD}"
