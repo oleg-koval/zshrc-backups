@@ -114,50 +114,61 @@ dps() { docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"; }
 # dclean — YSU-safe (no 'no_unset'), portable
 dclean() {
   emulate -L zsh -o pipefail
-  local dc="docker compose"
-  # if docker compose version >/dev/null 2>&1; then
-  #   dc="docker compose"
-  # elif command -v docker-compose >/dev/null 2>&1 && docker-compose version >/dev/null 2>&1; then
-  #   dc="docker-compose"
-  # else
-  #   echo "[x] docker compose not found."; return 1
-  # fi
 
   # Allow running from anywhere via envs
   local project_dir="${DCLEAN_PROJECT_DIR:-$PWD}"
-  local -a dc_args
-  if [[ -n "${DCLEAN_COMPOSE_FILES:-}" ]]; then
-    local f; for f in ${(s[:])DCLEAN_COMPOSE_FILES}; do dc_args+=(-f "$f"); done
-  fi
-  _dc() { ( cd "$project_dir" && eval "$dc" "${(q@)dc_args}" "${(q@)}" ); }
 
-  _dc config >/dev/null 2>&1 || {
-    echo "[x] Not a Docker Compose project directory."
-    echo "    Tip: cd into the project or export DCLEAN_PROJECT_DIR=/path"
+  # Change to project directory
+  cd "$project_dir" || {
+    echo "[x] Cannot access project directory: $project_dir"
     return 1
   }
 
+  # Check if this is a Docker Compose project and determine if profiles are needed
+  local use_profiles=false
+
+  # Check if there are services without profiles
+  local services_count=$(docker compose config --services 2>/dev/null | wc -l)
+  if [[ "$services_count" -eq 0 ]]; then
+    use_profiles=true
+  fi
+
+  # Build docker compose command
+  local dc_cmd="docker compose"
+  if [[ "$use_profiles" == "true" ]]; then
+    dc_cmd="docker compose --profile all --profile backend --profile frontend"
+  fi
+
+  # Get services list
   local -a services
   if (( $# == 0 )); then
-    services=(${(f)$(_dc config --services)})
+    services=(${(f)$(eval "$dc_cmd" config --services)})
   else
     services=("$@")
   fi
 
+  if [[ ${#services[@]} -eq 0 ]]; then
+    echo "[x] No services found or specified."
+    return 1
+  fi
+
   echo "🎯  Target services:"; printf "  -  %s\n" "${services[@]}"; echo "──────────────────────────────"
 
+  # Get running containers for these services
   local -a cids svc_cids
   local s; for s in "${services[@]}"; do
-    svc_cids=(${(f)$(_dc ps -q "$s" 2>/dev/null)})
+    svc_cids=(${(f)$(eval "$dc_cmd" ps -q "$s" 2>/dev/null)})
     (( ${#svc_cids[@]} )) && cids+=("${svc_cids[@]}")
   done
 
+  # Get container names
   local -a cname; local cid name
   for cid in "${cids[@]}"; do
     name="$(docker inspect -f '{{.Name}}' "$cid" 2>/dev/null)"; name="${name#/}"
     [[ -n "$name" ]] && cname+=("$name")
   done
 
+  # Get volumes and images from containers
   local -a vols imgs; local img_id v
   for cid in "${cids[@]}"; do
     for v in ${(f)$(docker inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$cid" 2>/dev/null)}; do
@@ -172,7 +183,7 @@ dclean() {
 
   echo "🗑️  Removing containers..."; echo "──────────────────────────────"
   if (( ${#cname[@]} )); then printf '  📦 %s\n' "${cname[@]}"; else echo "No containers to remove."; fi
-  _dc rm -sfv "${services[@]}" >/dev/null 2>&1 || true
+  eval "$dc_cmd" rm -sfv "${services[@]}" >/dev/null 2>&1 || true
 
   echo "──────────────────────────────"; echo "🗑️  Removing volumes..."; echo "──────────────────────────────"
   if (( ${#uniq_vols[@]} )); then printf '  🗄️  %s\n' "${uniq_vols[@]}"; docker volume rm -f "${uniq_vols[@]}" >/dev/null 2>&1 || true
@@ -191,10 +202,10 @@ dclean() {
 
   echo "🔄  Rebuilding services..."; echo "──────────────────────────────"
   echo "🛠️  Building Docker Compose services..."; echo "──────────────────────────────"
-  if _dc build "${services[@]}"; then echo "🎉  All services built successfully!"; else echo "❌  One or more services failed to build."; fi
+  if eval "$dc_cmd" build "${services[@]}"; then echo "🎉  All services built successfully!"; else echo "❌  One or more services failed to build."; fi
 
   echo "🚀  Starting services..."; echo "──────────────────────────────"
-  _dc up -d "${services[@]}"; echo "[✓] Done."
+  eval "$dc_cmd" up -d "${services[@]}"; echo "[✓] Done."
 }
 
 # --- zshrc backups (1-click) ---
@@ -298,3 +309,10 @@ aws rds generate-db-auth-token \
   --username user_oleg \
   --profile bizcuit-prd | tr -d "\n" | pbcopy
 '
+
+# Todo-app specific Docker Compose aliases
+alias dclean-todo="docker compose --profile backend --profile frontend rm -sfv && docker compose --profile backend --profile frontend build && docker compose --profile backend --profile frontend up -d"
+dclean-todo-services() { docker compose --profile backend --profile frontend rm -sfv "$@" && docker compose --profile backend --profile frontend build "$@" && docker compose --profile backend --profile frontend up -d "$@"; }
+alias dclean-api="dclean-todo-services zentra-api"
+alias dclean-web="dclean-todo-services zentra-web"
+alias dclean-api-web="dclean-todo-services zentra-api zentra-web"
