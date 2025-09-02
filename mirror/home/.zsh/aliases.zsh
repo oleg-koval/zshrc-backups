@@ -2,6 +2,9 @@
 alias c='clear'
 alias l='ls -la'
 alias reload='source ~/.zshrc'
+alias rl='source ~/.zshrc'
+alias editzsh='cursor ~/.zshrc'
+alias edzsh='cursor ~/.zshrc'
 alias f='open .'
 alias nb='git checkout -b'
 
