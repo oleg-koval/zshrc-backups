@@ -296,7 +296,8 @@ alias edit-aliases='cursor ~/.zsh/aliases.zsh'
 alias bpc='AWS_PROFILE=bizcuit-prd-core aws rds generate-db-auth-token --hostname bd1aohrleo1hkas.ca9zxcdegy6a.eu-west-1.rds.amazonaws.com --port 5432 --region eu-west-1 --username user_oleg | tr -d "\n" | pbcopy'
 
 alias token-core='
-aws rds generate-db-auth-token \
+  AWS_PROFILE=bizcuit-prd-core \
+  aws rds generate-db-auth-token \
   --hostname bd1aohrleo1hkas.ca9zxcdegy6a.eu-west-1.rds.amazonaws.com \
   --port 5432 \
   --region eu-west-1 \
@@ -305,7 +306,8 @@ aws rds generate-db-auth-token \
 '
 
 alias token-nc='
-aws rds generate-db-auth-token \
+  AWS_PROFILE=bizcuit-prd \
+  aws rds generate-db-auth-token \
   --hostname bd1p4a27j5q3mll.c6h3k4kc4ytk.eu-west-1.rds.amazonaws.com \
   --port 5432 \
   --region eu-west-1 \
@@ -319,3 +321,19 @@ dclean-todo-services() { docker compose --profile backend --profile frontend rm 
 alias dclean-api="dclean-todo-services zentra-api"
 alias dclean-web="dclean-todo-services zentra-web"
 alias dclean-api-web="dclean-todo-services zentra-api zentra-web"
+
+unalias aws
+
+
+
+# Cursor project paths
+MONOREPO_PATH="/Users/olegkoval/projects/work/active/monorepo"
+V2_PATH="/Users/olegkoval/projects/work/active/bizcuit2.0/backend"
+ZENTRA_PATH="/Users/olegkoval/projects/personal/active/todo-app"
+PHOTO_ARCHIVER_PATH="/Users/olegkoval/projects/personal/active/go-photo-archiving"
+
+# Cursor project functions
+cmonorepo() { cursor "$MONOREPO_PATH"; }
+cv2() { cursor "$V2_PATH"; }
+ctodo_app() { cursor "$ZENTRA_PATH"; }
+cphoto_archiver() { cursor "$PHOTO_ARCHIVER_PATH"; }
