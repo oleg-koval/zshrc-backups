@@ -335,5 +335,5 @@ PHOTO_ARCHIVER_PATH="/Users/olegkoval/projects/personal/active/go-photo-archivin
 # Cursor project functions
 cmonorepo() { cursor "$MONOREPO_PATH"; }
 cv2() { cursor "$V2_PATH"; }
-ctodo_app() { cursor "$ZENTRA_PATH"; }
+czentra() { cursor "$ZENTRA_PATH"; }
 cphoto_archiver() { cursor "$PHOTO_ARCHIVER_PATH"; }
