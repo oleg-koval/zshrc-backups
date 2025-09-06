@@ -23,7 +23,6 @@ alias gb='git branch'
 alias gbd='git branch -d'
 alias gbl='git blame'
 alias glg='git log --graph --decorate --oneline --all --date=relative'
-groot() { cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"; }
 alias gsw='git switch'
 alias gco-='git checkout -'
 alias gap='git add -p'
@@ -31,8 +30,31 @@ alias gsta='git stash push -u'
 alias gstp='git stash pop'
 alias gstl='git stash list'
 alias grhh='git reset --hard HEAD'
-gfixup() { git commit --fixup "$@" && GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash "$(git merge-base HEAD @{u})"; }
-gprune() { git remote prune origin && git fetch -p && git branch --merged | grep -vE '(\*|main|master|develop)' | xargs -n1 -I{} git branch -d {}; }
+
+# Change directory to the root of the current git repository, or stay in current directory if not in a git repo
+groot() { cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"; }
+
+# Hard reset local master, acceptance, and develop branches to match their remote counterparts, then return to master
+gresetremotes() {
+  git fetch origin && \
+  git reset --hard origin/master && \
+  git checkout acceptance && git reset --hard origin/acceptance && \
+  git checkout develop && git reset --hard origin/develop && \
+  git checkout master
+}
+
+# Create a fixup commit for the given commit(s) and immediately autosquash-rebase onto the upstream branch
+gfixup() {
+  git commit --fixup "$@" && \
+  GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash "$(git merge-base HEAD @{u})"
+}
+
+# Prune deleted remote branches, fetch updates, and delete all fully merged local branches except main, master, and develop
+gprune() {
+  git remote prune origin && \
+  git fetch -p && \
+  git branch --merged | grep -vE '(\*|main|master|develop)' | xargs -n1 -I{} git branch -d {}
+}
 
 
 ##### Handy utils
@@ -337,3 +359,5 @@ cmonorepo() { cursor "$MONOREPO_PATH"; }
 cv2() { cursor "$V2_PATH"; }
 czentra() { cursor "$ZENTRA_PATH"; }
 cphoto_archiver() { cursor "$PHOTO_ARCHIVER_PATH"; }
+
+
