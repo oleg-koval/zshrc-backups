@@ -1,0 +1,151 @@
+export EDITOR="cursor"
+
+# Detect integrated terminals
+IS_EDITOR_TERM=0
+[[ "$TERM_PROGRAM" == "vscode" ]] && IS_EDITOR_TERM=1
+[[ "${TERMINAL_EMULATOR:-}" == "JetBrains-JediTerm" ]] && IS_EDITOR_TERM=1
+[[ -n "${CURSOR_TERMINAL:-}" ]] && IS_EDITOR_TERM=1     # Cursor editor
+
+if (( IS_EDITOR_TERM )); then
+  ZSH_THEME=""                          # disable OMZ theme
+  # Use Starship (simple & fast) if installed
+  command -v starship >/dev/null && eval "$(starship init zsh)"
+else
+  ZSH_THEME="powerlevel10k/powerlevel10k"
+  [[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
+fi
+
+
+typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
+# Interactive shells shouldn't use nounset: many OMZ plugins assume unset vars exist.
+case $- in *i*) unsetopt nounset;; esac
+
+# you-should-use — nounset-safe defaults (MUST be before OMZ)
+typeset -ga YSU_IGNORED_ALIASES YSU_IGNORED_GLOBAL_ALIASES
+YSU_IGNORED_ALIASES=(gs gst gco ga gaa gcm gca gp gpl gl gb gbd gbl)
+YSU_IGNORED_GLOBAL_ALIASES=()
+
+# internal buffers the plugin expects
+typeset -g _YSU_BUFFER="" _YSU_GLOBAL_BUFFER=""
+
+# behavior knobs
+export YSU_MODE=BESTMATCH
+export YSU_MESSAGE_POSITION=before
+export YSU_HARDCORE=0
+
+# Optional: keep strict mode for scripts but NOT for the interactive shell
+[[ -o interactive ]] && unsetopt nounset
+
+# OMZ core expects these to exist
+: ${DISABLE_AUTO_UPDATE:=true}
+: ${DISABLE_UPDATE_PROMPT:=true}
+: ${CASE_SENSITIVE:=false}
+: ${ENABLE_CORRECTION:=false}
+: ${DISABLE_MAGIC_FUNCTIONS:=false}
+: ${DISABLE_LS_COLORS:=false}
+: ${HYPHEN_INSENSITIVE:=false}
+: ${INSIDE_EMACS:=}
+: ${SSH_CLIENT:=}
+: ${ZLE_RPROMPT_INDENT:=1}
+
+# --- fzf sane defaults (fix Ctrl-R error) ---
+export FZF_TMUX=1
+# If height ends with '+' but no number after it, replace with a safe default.
+if [[ "${FZF_TMUX_HEIGHT:-}" = *'+' && "${FZF_TMUX_HEIGHT}" != *'+'([0-9]) ]]; then
+  unset FZF_TMUX_HEIGHT
+fi
+: ${FZF_TMUX_HEIGHT:='50%'}   # valid examples: '50%', '20', '40%+4'
+# --- end fzf defaults ---
+
+# If you enable the fzf plugin, it wants FZF_BASE defined
+if [[ -z "${FZF_BASE:-}" ]]; then
+  if command -v brew >/dev/null 2>&1 && brew --prefix fzf >/dev/null 2>&1; then
+    export FZF_BASE="$(brew --prefix fzf)"
+  else
+    export FZF_BASE="$HOME/.fzf"   # standard install location
+  fi
+fi
+
+##### Oh My Zsh base
+export ZSH="$HOME/.oh-my-zsh"
+export ZSH_DISABLE_COMPFIX=true
+ZSH_THEME="powerlevel10k/powerlevel10k"
+
+# --- FZF & tmux: sanity patch (fix "not a valid integer: 20+") ---
+# Prefer Homebrew's fzf on Apple Silicon
+[[ -x /opt/homebrew/opt/fzf/bin/fzf ]] && export PATH="/opt/homebrew/opt/fzf/bin:$PATH"
+
+# Always use tmux split/popup integration
+export FZF_TMUX=1
+
+# Force a valid height; some setups default to "20+" which tmux/zsh hate
+if [[ -z "${FZF_TMUX_HEIGHT:-}" || "${FZF_TMUX_HEIGHT}" == *'+'* ]]; then
+  export FZF_TMUX_HEIGHT='50%'
+fi
+
+# Scrub any bad --height in FZF_DEFAULT_OPTS (e.g. "--height 20+")
+if [[ -n "${FZF_DEFAULT_OPTS:-}" ]]; then
+  FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS//--height 20+/--height 50%}"
+  FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS//--height=20+/--height=50%}"
+  export FZF_DEFAULT_OPTS
+fi
+
+# Use fzf’s official keybindings (keeps Ctrl-R etc.) instead of OMZ’s wrapper
+[[ -r /opt/homebrew/opt/fzf/shell/key-bindings.zsh ]] && source /opt/homebrew/opt/fzf/shell/key-bindings.zsh
+# --- end FZF & tmux patch ---
+
+# enable OMZ
+plugins=(git fzf z fzf-tab zsh-autosuggestions you-should-use zsh-syntax-highlighting)
+if [[ -o nounset ]]; then __OMZ_NOUNSET=1; unsetopt nounset; fi
+source "$ZSH/oh-my-zsh.sh"
+[[ -n ${__OMZ_NOUNSET-} ]] && setopt nounset && unset __OMZ_NOUNSE
+
+# you-should-use — guard its functions in case nounset is toggled later
+ysu_guard() {
+  local fn
+  for fn in _check_aliases _check_global_aliases _flush_ysu_buffer; do
+    if typeset -f $fn >/dev/null && ! typeset -f ${fn}_orig >/dev/null; then
+      functions -c $fn ${fn}_orig
+      eval "$fn() {
+        emulate -L zsh
+        local had=0
+        if [[ -o nounset ]]; then had=1; unsetopt nounset; fi
+        ${fn}_orig \"\$@\"
+        (( had )) && setopt nounset
+      }"
+    fi
+  done
+}
+ysu_guard
+unset -f ysu_guard
+
+# pretty prompt (Powerlevel10k)
+[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
+
+##### pnpm / PATH
+export PNPM_HOME="$HOME/Library/pnpm"
+case ":$PATH:" in (*":$PNPM_HOME:"*) ;; (*) export PATH="$PNPM_HOME:$PATH" ;; esac
+
+##### NVM
+export NVM_DIR="$HOME/.nvm"
+[[ -s "$NVM_DIR/nvm.sh" ]] && . "$NVM_DIR/nvm.sh"
+[[ -s "$NVM_DIR/bash_completion" ]] && . "$NVM_DIR/bash_completion"
+
+# Auto-use Node from .nvmrc
+nvmuse() { [[ -f .nvmrc ]] && nvm use >/dev/null || true; }
+autoload -Uz add-zsh-hook 2>/dev/null || true
+add-zsh-hook chpwd nvmuse 2>/dev/null || true
+nvmuse
+
+# ~/.zshrc — disable Powerlevel10k when Cursor Agent runs
+if [[ -n "$CURSOR_AGENT" ]]; then
+  # Skip theme initialization for better compatibility
+else
+  [[ -r ~/.p10k.zsh ]] && source ~/.p10k.zsh
+fi
+
+##### 1Password CLI (optional)
+[[ -f "$HOME/.config/op/plugins.sh" ]] && source "$HOME/.config/op/plugins.sh"
+
+# personal aliases
+[[ -r "$HOME/.zsh/aliases.zsh" ]] && source "$HOME/.zsh/aliases.zsh"
